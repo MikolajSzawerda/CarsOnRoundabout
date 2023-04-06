@@ -12,6 +12,9 @@ using namespace std;
 #define DILATE_MASK_SIZE 7
 #define BLUR_SIZE 5
 #define ERODE_MASK_SIZE 9
+#define OBJECT_MIN_SIZE 200
+
+typedef vector<vector<Point> > Contours;
 
 void cutObjectsByMask(Mat& frame, Mat const& mask){
     vector<Mat> channels(3);
@@ -28,15 +31,49 @@ void processMask(Mat& mask){
     threshold(mask, mask, 150, 255, THRESH_BINARY);
 }
 
+void draw_object_contours(Contours& contours, Mat& frame, Mat const& mask){
+    findContours(mask, contours, RETR_LIST, CHAIN_APPROX_SIMPLE);
+    contours.erase(remove_if(contours.begin(), contours.end(), [&](auto const& contour) {
+        return contourArea(contour) < OBJECT_MIN_SIZE;
+    }), contours.end());
+    drawContours(frame, contours, -1, Scalar(0, 255, 0));
+}
+
+void draw_objects_info(Contours const& contours, Mat& frame){
+    String str = "# of objects: " + to_string(contours.size());
+    putText(frame, str, Point(10, 30), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(0, 255, 0, 255), 1);
+}
+
+vector<Point> getObjectsMiddlePoint(Contours const& contours){
+    vector<Point> points(contours.size());
+    vector<Point> approx;
+    for(int i=0;i<contours.size(); i++){
+        approxPolyDP(contours[i], approx, 3, true);
+        Rect box = boundingRect(approx);
+        points[i] = (box.tl()+box.br())/2.0;
+    }
+    return points;
+}
+
+void draw_middle_points(Mat const& frame, vector<Point> const& middlePoints){
+    int i=0;
+    for(auto const& middlePoint: middlePoints){
+        circle(frame, middlePoint, 3, Scalar(0, 0, 255), FILLED);
+        printf("Object nr. %d X: %d Y: %d\n", i, middlePoint.x, middlePoint.y);
+    }
+}
+
 
 int main() {
-    VideoCapture capture("../movies/synth2/512.mp4");
+    VideoCapture capture("../movies/synth2/522.mp4");
     if(!capture.isOpened()){
         cout<< "Cannot open" <<endl;
         return -1;
     }
     Mat frame, preprocessed, mask;
     Ptr<BackgroundSubtractor> backSub = createBackgroundSubtractorMOG2();
+    Contours contours;
+    capture >> frame;
     for(;;){
         capture >> frame;
         if(frame.empty()) break;
@@ -44,7 +81,13 @@ int main() {
 
         backSub->apply(preprocessed, mask);
         processMask(mask);
-        cutObjectsByMask(frame, mask);
+
+        draw_object_contours(contours, frame, mask);
+        draw_objects_info(contours, frame);
+
+        vector<Point> objectsCoor = getObjectsMiddlePoint(contours);
+        draw_middle_points(frame, objectsCoor);
+
         imshow("Frame", frame);
         imshow("Mask", mask);
 
