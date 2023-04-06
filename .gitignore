@@ -3,3 +3,4 @@ movies/
 *.png
 cmake-build-debug/
 .idea/
+!example_usage.png
