@@ -2,6 +2,8 @@
 
 App written using OpenCV, and mainly based on "Mixture of Gaussian" algorithm.
 
+![](example_usage.png)
+
 ## Algorithm
 - select ROI - here roundabout
 - decrease noise using Gaussian blur with mask $5 \times 5$
