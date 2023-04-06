@@ -31,12 +31,16 @@ void processMask(Mat& mask){
     threshold(mask, mask, 150, 255, THRESH_BINARY);
 }
 
-void draw_object_contours(Contours& contours, Mat& frame, Mat const& mask){
+void get_contours(Contours& contours, Mat const& mask, Point offset){
     findContours(mask, contours, RETR_LIST, CHAIN_APPROX_SIMPLE);
     contours.erase(remove_if(contours.begin(), contours.end(), [&](auto const& contour) {
         return contourArea(contour) < OBJECT_MIN_SIZE;
     }), contours.end());
-    drawContours(frame, contours, -1, Scalar(0, 255, 0));
+    for(auto& c:contours){
+        for(auto& p:c){
+            p+=offset;
+        }
+    }
 }
 
 void draw_objects_info(Contours const& contours, Mat& frame){
@@ -74,15 +78,18 @@ int main() {
     Ptr<BackgroundSubtractor> backSub = createBackgroundSubtractorMOG2();
     Contours contours;
     capture >> frame;
+    Rect roi = selectROI(frame);
     for(;;){
         capture >> frame;
         if(frame.empty()) break;
-        GaussianBlur(frame, preprocessed, Size(BLUR_SIZE, BLUR_SIZE), 0);
+        Mat image = frame(roi);
+        GaussianBlur(image, preprocessed, Size(BLUR_SIZE, BLUR_SIZE), 0);
 
         backSub->apply(preprocessed, mask);
         processMask(mask);
 
-        draw_object_contours(contours, frame, mask);
+        get_contours(contours, mask, roi.tl());
+        drawContours(frame, contours, -1, Scalar(0, 255, 0));
         draw_objects_info(contours, frame);
 
         vector<Point> objectsCoor = getObjectsMiddlePoint(contours);
