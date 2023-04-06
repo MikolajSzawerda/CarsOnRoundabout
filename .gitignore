@@ -1,0 +1,5 @@
+movies/
+*.mp4
+*.png
+cmake-build-debug/
+.idea/
